@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
+import { createServerClient, fetchHotelDeals } from '@/lib/supabase'
 import { DESTINATIONS, ScrapeRequest, HotelRate } from '@/lib/types'
 import { findOptimalStreaks } from '@/lib/optimizer'
 import { findAnomalies, calculateHistoricalAverages } from '@/lib/anomaly'
@@ -90,8 +90,17 @@ export async function POST(request: NextRequest) {
       // Continue without database - use mock data
     }
 
-    // For now, use mock data (in production, this would call the Python scraper)
-    const rates = generateMockHotelData(destination, checkIn)
+    // Try to fetch real data from us_hotel_deals table
+    let rates = await fetchHotelDeals(destination, checkInDate, 10)
+    const usingRealData = rates.length > 0
+
+    if (!usingRealData) {
+      // Fall back to mock data if no real data available
+      console.log(`No real data for ${destination}, using mock data`)
+      rates = generateMockHotelData(`${destination}, ${dest.state}`, checkIn)
+    } else {
+      console.log(`Found ${rates.length} real hotel rates for ${destination}`)
+    }
 
     // Store rates in database
     if (job) {
@@ -145,6 +154,7 @@ export async function POST(request: NextRequest) {
       status: 'completed',
       progress: 100,
       results,
+      dataSource: usingRealData ? 'real' : 'mock',
     })
   } catch (error) {
     console.error('Scrape error:', error)

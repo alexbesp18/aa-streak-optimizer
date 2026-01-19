@@ -99,3 +99,8 @@ export const DESTINATIONS = [
 ] as const
 
 export type DestinationName = typeof DESTINATIONS[number]['name']
+
+// Helper to get state from city name
+export const CITY_STATE_MAP: Record<string, string> = Object.fromEntries(
+  DESTINATIONS.map(d => [d.name, d.state])
+)
